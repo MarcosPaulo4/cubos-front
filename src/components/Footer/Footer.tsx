@@ -1,3 +1,4 @@
+// src/components/Footer/Footer.tsx
 import { Box, Stack, Typography } from "@mui/material";
 
 export const Footer = () => {
@@ -11,12 +12,9 @@ export const Footer = () => {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        position: "fixed",
-        bottom: 0,
-        left: 0,
         borderTop: "1px solid #F1E6FD30",
-        backgroundColor: "transparent",
-        zIndex: 1000,
+        bgcolor: "transparent",
+        flexShrink: 0,
       }}
     >
       <Stack direction="row" spacing={0.5} alignItems="center">

@@ -1,4 +1,5 @@
 // src/api/movies.ts
+import type { Movie } from "../types/MovieType";
 import { api } from "./client";
 
 export interface MovieFilters {
@@ -11,6 +12,18 @@ export interface MovieFilters {
   status?: string;
   ageRatingId?: string;
   genreId?: string;
+}
+
+export interface UpdateMoviePayload {
+  title?: string;
+  originalTitle?: string;
+  synopsis?: string;
+  trailerUrl?: string;
+  duration?: number;
+  releaseDate?: string;
+  status?: string;
+  ageRatingId?: string;
+  genreIds?: string[];
 }
 
 export const MovieAPI = {
@@ -36,5 +49,20 @@ export const MovieAPI = {
       headers: { "Content-Type": "multipart/form-data" },
     });
     return res.data;
+  },
+
+    getById: async (id: string) => {
+    const res = await api.get(`/movies/${id}`);
+    return res.data;
+  },
+
+
+  update: async (id: string, data: UpdateMoviePayload): Promise<Movie> => {
+    const res = await api.put(`/movies/${id}`, data);
+    return res.data;
+  },
+
+  delete: async (id: string) => {
+    await api.delete(`/movies/${id}`);
   },
 };

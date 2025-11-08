@@ -28,7 +28,7 @@ export const Navbar = () => {
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
-        background: "transparent",
+        background: "#12111380",
         position: "fixed",
         borderBottom: "1px solid #F1E6FD30 ",
         zIndex: 1000,

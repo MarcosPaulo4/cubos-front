@@ -52,7 +52,6 @@ MuiTextField: {
     root: {
       width: "380px",
       "& .MuiOutlinedInput-root": {
-        height: "44px", 
         minLength: "44px",
         backgroundColor: mode === "dark" ? "#1A191B" : "##B5B2BC", 
 
@@ -65,6 +64,10 @@ MuiTextField: {
         "&.Mui-focused fieldset": {
           borderColor: mode === "dark" ? "#8E4EC6" : "#9A5CD0", 
         },
+      },
+
+      "& .MuiOutlinedInput-root:not(.MuiInputBase-multiline)": {
+        height: "44px",
       },
 
       "& .MuiInputBase-input": {

@@ -1,4 +1,4 @@
-// src/components/Home/AddMovie/AddMovieForm.tsx
+
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   Box,
@@ -10,7 +10,8 @@ import { useEffect, useState } from "react";
 import { Controller, FormProvider, useForm } from "react-hook-form";
 import { AgeRatingAPI, type AgeRatingDTO } from "../../../api/age-rating";
 import { GenreAPI, type GenreDTO } from "../../../api/genre";
-import { MovieAPI } from "../../../api/movies";
+import { MovieAPI, type UpdateMoviePayload } from "../../../api/movies";
+import type { Movie } from "../../../types/MovieType";
 import { FormField } from "../../Forms/FormField";
 import {
   addMovieSchema,
@@ -23,15 +24,42 @@ interface Option {
   value: string;
 }
 
-interface AddMovieFormProps {
+interface BaseMovieFormProps {
   onCancel: () => void;
   onSuccess?: () => void;
 }
 
-export const AddMovieForm = ({ onCancel, onSuccess }: AddMovieFormProps) => {
+interface MovieFormProps extends BaseMovieFormProps {
+  mode: "create" | "edit";
+  movie?: Movie | null;
+}
+
+const mapMovieToFormDefaults = (movie: Movie): AddMovieFormData => ({
+  title: movie.title || "",
+  originalTitle: movie.originalTitle || "",
+  synopsis: movie.synopsis || "",
+  trailerUrl: movie.trailerUrl || "",
+  duration: movie.duration || 0,
+  releaseDate: movie.releaseDate
+    ? (typeof movie.releaseDate === "string"
+      ? movie.releaseDate.slice(0, 10)
+      : new Date(movie.releaseDate).toISOString().slice(0, 10))
+    : "",
+  genreIds:
+    movie.genres?.map((g) => g.genre.id).filter(Boolean) || [],
+  language: [],
+  ageRatingId: movie.ageRating?.id || "",
+  status:
+    (movie.status as AddMovieFormData["status"]) ||
+    MovieStatusEnum.DRAFT,
+});
+
+const MovieForm = ({ mode, movie, onCancel, onSuccess }: MovieFormProps) => {
   const [ageRatings, setAgeRatings] = useState<Option[]>([]);
   const [genres, setGenres] = useState<Option[]>([]);
   const [coverFile, setCoverFile] = useState<File | null>(null);
+
+  const isEdit = mode === "edit";
 
   useEffect(() => {
     const fetchOptions = async () => {
@@ -64,17 +92,21 @@ export const AddMovieForm = ({ onCancel, onSuccess }: AddMovieFormProps) => {
 
   const methods = useForm<AddMovieFormData>({
     resolver: zodResolver(addMovieSchema),
-    defaultValues: {
-      title: "",
-      originalTitle: "",
-      synopsis: "",
-      trailerUrl: "",
-      duration: 0,
-      releaseDate: "",
-      genreIds: [],
-      ageRatingId: "",
-      status: MovieStatusEnum.DRAFT,
-    },
+    defaultValues:
+      isEdit && movie
+        ? mapMovieToFormDefaults(movie)
+        : {
+          title: "",
+          originalTitle: "",
+          synopsis: "",
+          trailerUrl: "",
+          duration: 0,
+          releaseDate: "",
+          genreIds: [],
+          language: [],
+          ageRatingId: "",
+          status: MovieStatusEnum.DRAFT,
+        },
   });
 
   const {
@@ -85,39 +117,105 @@ export const AddMovieForm = ({ onCancel, onSuccess }: AddMovieFormProps) => {
     reset,
   } = methods;
 
+  useEffect(() => {
+    if (isEdit && movie) {
+      reset(mapMovieToFormDefaults(movie));
+      setCoverFile(null);
+    }
+  }, [isEdit, movie, reset]);
+
   const onSubmit = async (data: AddMovieFormData) => {
     try {
-      const formData = new FormData();
+      if (isEdit) {
+        if (!movie?.id) return;
 
-      formData.append("title", data.title);
-      if (data.originalTitle) formData.append("originalTitle", data.originalTitle);
-      if (data.synopsis) formData.append("synopsis", data.synopsis);
-      if (data.trailerUrl) formData.append("trailerUrl", data.trailerUrl);
-      formData.append("duration", String(data.duration));
-      if (data.releaseDate) formData.append("releaseDate", data.releaseDate);
-      formData.append("ageRatingId", data.ageRatingId);
-      formData.append("status", data.status);
-      data.genreIds.forEach((id) => formData.append("genreIds", id));
+        const payload: UpdateMoviePayload = {};
 
-      if (coverFile) {
-        formData.append("cover", coverFile);
+        if (data.title && data.title.trim()) {
+          payload.title = data.title.trim();
+        }
+
+        if (data.originalTitle !== undefined) {
+          const trimmed = data.originalTitle.trim();
+          if (trimmed) payload.originalTitle = trimmed;
+        }
+
+        if (data.synopsis !== undefined) {
+          const trimmed = data.synopsis.trim();
+          if (trimmed) payload.synopsis = trimmed;
+        }
+
+        if (data.trailerUrl !== undefined) {
+          const trimmed = data.trailerUrl.trim();
+          if (trimmed) payload.trailerUrl = trimmed;
+        }
+
+        if (
+          typeof data.duration === "number" &&
+          !Number.isNaN(data.duration) &&
+          data.duration > 0
+        ) {
+          payload.duration = data.duration;
+        }
+
+        if (data.releaseDate) {
+          payload.releaseDate = data.releaseDate;
+        }
+
+        if (data.status) {
+          payload.status = data.status;
+        }
+
+        if (data.ageRatingId && data.ageRatingId.trim() !== "") {
+          payload.ageRatingId = data.ageRatingId;
+        }
+
+        if (Array.isArray(data.genreIds) && data.genreIds.length > 0) {
+          const cleaned = data.genreIds.filter(
+            (id) => !!id && id.trim() !== ""
+          );
+          if (cleaned.length > 0) {
+            payload.genreIds = cleaned;
+          }
+        }
+
+        await MovieAPI.update(movie.id, payload);
+      } else {
+        const formData = new FormData();
+
+        formData.append("title", data.title);
+        if (data.originalTitle)
+          formData.append("originalTitle", data.originalTitle);
+        if (data.synopsis) formData.append("synopsis", data.synopsis);
+        if (data.trailerUrl) formData.append("trailerUrl", data.trailerUrl);
+        formData.append("duration", String(data.duration));
+        if (data.releaseDate)
+          formData.append("releaseDate", data.releaseDate);
+        formData.append("ageRatingId", data.ageRatingId);
+        formData.append("status", data.status);
+        data.genreIds.forEach((id) => formData.append("genreIds", id));
+        if (coverFile) formData.append("cover", coverFile);
+
+        await MovieAPI.create(formData);
       }
-
-      await MovieAPI.create(formData);
 
       onSuccess?.();
       reset();
       onCancel();
     } catch (error) {
-      console.error("Erro ao criar filme:", error);
+      console.error(
+        isEdit ? "Erro ao atualizar filme:" : "Erro ao criar filme:",
+        error
+      );
     }
   };
+
 
   return (
     <FormProvider {...methods}>
       <Box
         component="form"
-        id="add-movie-form"
+        id="movie-form"
         onSubmit={handleSubmit(onSubmit)}
         display="flex"
         flexDirection="column"
@@ -152,8 +250,8 @@ export const AddMovieForm = ({ onCancel, onSuccess }: AddMovieFormProps) => {
           </Box>
           <TextField
             multiline
-            minRows={3}
             fullWidth
+            maxRows={10}
             {...register("synopsis")}
             error={!!errors.synopsis}
             helperText={errors.synopsis?.message}
@@ -162,17 +260,98 @@ export const AddMovieForm = ({ onCancel, onSuccess }: AddMovieFormProps) => {
 
         <Box>
           <Box pb={0.5}>
-            <Typography fontWeight="bold" fontSize="12.8px">Capa do filme</Typography>
+            <Typography fontWeight="bold" fontSize="12.8px">Idioma</Typography>
           </Box>
-          <input
-            type="file"
-            accept="image/*"
-            onChange={(e) => {
-              const file = e.target.files?.[0] || null;
-              setCoverFile(file);
-            }}
+          <Controller
+            name="language"
+            control={control}
+            render={({ field }) => (
+              <TextField
+                select
+                size="small"
+                fullWidth
+                slotProps={{ select: { multiple: true } }}
+                {...field}
+              >
+                <MenuItem value="pt-BR">Português (Brasil)</MenuItem>
+                <MenuItem value="en-US">Inglês</MenuItem>
+                <MenuItem value="es-ES">Espanhol</MenuItem>
+                <MenuItem value="fr-FR">Francês</MenuItem>
+                <MenuItem value="ja-JP">Japonês</MenuItem>
+              </TextField>
+            )}
           />
         </Box>
+
+        {!isEdit && (
+          <Box>
+            <Box pb={0.5}>
+              <Typography fontWeight="bold" fontSize="12.8px">
+                Capa do filme
+              </Typography>
+            </Box>
+
+            <Box
+              component="label"
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 1.5,
+                px: 1.5,
+                height: "44px",
+                borderRadius: "4px",
+                bgcolor: "#1A191B",
+                border: "1px solid #403D40",
+                cursor: "pointer",
+                transition: "all 0.2s ease",
+                "&:hover": {
+                  borderColor: "#8E4EC6",
+                  bgcolor: "#1E1C22",
+                },
+              }}
+            >
+              <Typography
+                sx={{
+                  fontSize: "12px",
+                  color: coverFile ? "#FFFFFF" : "#B4B4B4",
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                }}
+              >
+                {coverFile
+                  ? coverFile.name
+                  : "Selecione a imagem da capa"}
+              </Typography>
+
+              <Box
+                sx={{
+                  px: 1.5,
+                  py: 0.5,
+                  borderRadius: "2px",
+                  bgcolor: "#8E4EC6",
+                  color: "#FFFFFF",
+                  fontSize: "11px",
+                  fontWeight: 500,
+                  whiteSpace: "nowrap",
+                }}
+              >
+                Escolher arquivo
+              </Box>
+
+              <input
+                type="file"
+                accept="image/*"
+                hidden
+                onChange={(e) => {
+                  const file = e.target.files?.[0] || null;
+                  setCoverFile(file);
+                }}
+              />
+            </Box>
+          </Box>
+        )}
 
         <Box>
           <Box pb={0.5}>
@@ -197,15 +376,13 @@ export const AddMovieForm = ({ onCancel, onSuccess }: AddMovieFormProps) => {
                 select
                 size="small"
                 fullWidth
-                SelectProps={{
-                  multiple: true,
-                  value: field.value || [],
-                  onChange: (event) => {
-                    const value = event.target.value;
-                    field.onChange(
-                      Array.isArray(value) ? value : value.split(",")
-                    );
-                  },
+                slotProps={{ select: { multiple: true } }}
+                value={field.value || []}
+                onChange={(event) => {
+                  const value = event.target.value;
+                  field.onChange(
+                    Array.isArray(value) ? value : String(value).split(",")
+                  );
                 }}
                 error={!!errors.genreIds}
                 helperText={errors.genreIds?.message}
@@ -222,7 +399,9 @@ export const AddMovieForm = ({ onCancel, onSuccess }: AddMovieFormProps) => {
 
         <Box>
           <Box pb={0.5}>
-            <Typography fontWeight="bold" fontSize="12.8px">Classificação Indicativa</Typography>
+            <Typography fontWeight="bold" fontSize="12.8px">
+              Classificação Indicativa
+            </Typography>
           </Box>
           <Controller
             name="ageRatingId"
@@ -248,7 +427,9 @@ export const AddMovieForm = ({ onCancel, onSuccess }: AddMovieFormProps) => {
 
         <Box>
           <Box pb={0.5}>
-            <Typography fontWeight="bold" fontSize="12.8px">Status de lançamento</Typography>
+            <Typography fontWeight="bold" fontSize="12.8px">
+              Status de lançamento
+            </Typography>
           </Box>
           <Controller
             name="status"
@@ -272,7 +453,9 @@ export const AddMovieForm = ({ onCancel, onSuccess }: AddMovieFormProps) => {
 
         <Box>
           <Box pb={0.5}>
-            <Typography fontWeight="bold" fontSize="12.8px">Duração (minutos)</Typography>
+            <Typography fontWeight="bold" fontSize="12.8px">
+              Duração (minutos)
+            </Typography>
           </Box>
           <TextField
             type="number"
@@ -287,7 +470,9 @@ export const AddMovieForm = ({ onCancel, onSuccess }: AddMovieFormProps) => {
 
         <Box>
           <Box pb={0.5}>
-            <Typography fontWeight="bold" fontSize="12.8px">Data de lançamento</Typography>
+            <Typography fontWeight="bold" fontSize="12.8px">
+              Data de lançamento
+            </Typography>
           </Box>
           <TextField
             type="date"
@@ -302,3 +487,14 @@ export const AddMovieForm = ({ onCancel, onSuccess }: AddMovieFormProps) => {
     </FormProvider>
   );
 };
+
+export const AddMovieForm = (props: BaseMovieFormProps) => (
+  <MovieForm mode="create" {...props} />
+);
+
+interface EditMovieFormProps extends BaseMovieFormProps {
+  movie: Movie;
+}
+export const EditMovieForm = ({ movie, ...rest }: EditMovieFormProps) => (
+  <MovieForm mode="edit" movie={movie} {...rest} />
+);

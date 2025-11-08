@@ -1,13 +1,22 @@
-import { Box, Button, Drawer, Typography, useMediaQuery, useTheme } from "@mui/material";
-import { AddMovieForm } from "./AddMovieForm";
+// src/components/Home/AddMovie/UpdateMovieDrawer.tsx
 
-interface AddMovieDrawerProps {
+import { Box, Button, Drawer, Typography, useMediaQuery, useTheme } from "@mui/material";
+import type { Movie } from "../../types/MovieType";
+import { EditMovieForm } from "../Home/AddMovie/AddMovieForm";
+
+interface UpdateMovieDrawerProps {
   open: boolean;
   onClose: () => void;
   onSuccess: () => void;
+  movie: Movie | null;
 }
 
-export const AddMovieDrawer = ({ onClose, open, onSuccess }: AddMovieDrawerProps) => {
+export const UpdateMovieDrawer = ({
+  open,
+  onClose,
+  onSuccess,
+  movie,
+}: UpdateMovieDrawerProps) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
@@ -33,7 +42,7 @@ export const AddMovieDrawer = ({ onClose, open, onSuccess }: AddMovieDrawerProps
     >
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
         <Typography variant="h6" fontWeight={700} fontSize="24px" color="#B5B2BC">
-          Adicionar Filme
+          Editar Filme
         </Typography>
         <Button
           onClick={onClose}
@@ -55,7 +64,13 @@ export const AddMovieDrawer = ({ onClose, open, onSuccess }: AddMovieDrawerProps
         display="flex"
         justifyContent="center"
       >
-        <AddMovieForm onCancel={onClose} onSuccess={onSuccess} />
+        {movie && (
+          <EditMovieForm
+            movie={movie}
+            onCancel={onClose}
+            onSuccess={onSuccess}
+          />
+        )}
       </Box>
 
       <Box display="flex" justifyContent="flex-end" gap={1.5} px="16px" mt="16px">
@@ -63,7 +78,7 @@ export const AddMovieDrawer = ({ onClose, open, onSuccess }: AddMovieDrawerProps
           Cancelar
         </Button>
         <Button variant="contained" type="submit" form="movie-form">
-          Adicionar Filme
+          Salvar alterações
         </Button>
       </Box>
     </Drawer>
